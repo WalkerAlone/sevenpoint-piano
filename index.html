@@ -9,12 +9,173 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-touch-fullscreen" content="yes">
   <title>sky·piano</title>
-<link href="./static/css/index.f663526a.css" rel="stylesheet"></head>
+  <link href="https://cdn.tailwindcss.com" rel="stylesheet">
+  <link href="./static/css/index.f663526a.css" rel="stylesheet">
+  
+  <style>
+    /* 开屏动画样式 */
+    .splash-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      transition: opacity 0.8s ease-out;
+      position: relative;
+    }
+    
+    .splash-text {
+      font-size: 2.5rem;
+      font-weight: bold;
+      text-align: center;
+      opacity: 0;
+      transition: opacity 1s ease-in-out;
+    }
+    
+    /* 旋转相关样式 */
+    .splash-text.rotate {
+      transition: transform 1.5s ease-in-out;
+    }
+    
+    .splash-text.visible {
+      opacity: 1;
+    }
+    
+    .splash-text.rotated {
+      transform: rotate(90deg);
+    }
+    
+    /* 右下角12345文字样式 */
+    .bottom-right-text {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      font-size: 1rem;
+      color: #666;
+      opacity: 0;
+      transition: opacity 0.5s ease-in-out;
+    }
+    
+    .bottom-right-text.show {
+      opacity: 1;
+    }
+    
+    /* 隐藏原始内容直到开屏动画结束 */
+    #app {
+      opacity: 0;
+      transition: opacity 0.5s ease-in;
+    }
+    
+    #app.visible {
+      opacity: 1;
+    }
+  </style>
+</head>
 
 <body>
+  <!-- 开屏动画容器 -->
+  <div class="splash-screen">
+    <div class="splash-text" id="helloText">嗨！小七</div>
+    <div class="splash-text" id="rotateText">把手机横屏</div>
+    <!-- 右下角小字 -->
+    <div class="bottom-right-text" id="bottomText">@易航</div>
+  </div>
+  
   <div id="app"></div>
-  <script>var _hmt=_hmt||[];!function(){var e=document.createElement("script");e.src="https://hm.baidu.com/hm.js?a0a029f60c1595a19fba2ac39f6f14bc";var t=document.getElementsByTagName("script")[0];t.parentNode.insertBefore(e,t)}()</script>
-<script src="./static/js/vendors_index.cd86757e.chunk.js"></script><script src="./static/js/index.19ddcac8.js"></script></body>
+  
+  <script>
+    // 百度统计代码
+    var _hmt = _hmt || [];
+    !function() {
+      var e = document.createElement("script");
+      e.src = "https://hm.baidu.com/hm.js?a0a029f60c1595a19fba2ac39f6f14bc";
+      var t = document.getElementsByTagName("script")[0];
+      t.parentNode.insertBefore(e, t)
+    }();
+    
+    // 开屏动画逻辑
+    document.addEventListener('DOMContentLoaded', function() {
+      const splashScreen = document.querySelector('.splash-screen');
+      const helloText = document.getElementById('helloText');
+      const rotateText = document.getElementById('rotateText');
+      const bottomText = document.getElementById('bottomText');
+      const app = document.getElementById('app');
+      
+      // 检查屏幕方向
+      function isLandscape() {
+        return window.innerWidth > window.innerHeight;
+      }
+      
+      // 显示"你好"文字
+      setTimeout(() => {
+        helloText.classList.add('visible');
+        bottomText.classList.add('show');
+        // 2秒后切换到"请将手机横屏"
+        setTimeout(() => {
+          helloText.classList.remove('visible');
+          
+          // 1秒后显示"请将手机横屏"
+          setTimeout(() => {
+            rotateText.classList.add('visible');
+            
+            // 先正常显示2秒
+            setTimeout(() => {
+              // 显示右下角12345
+              
+              // 缓慢旋转90度
+              rotateText.classList.add('rotate', 'rotated');
+              
+              // 旋转后保持2秒
+              setTimeout(() => {
+                // 隐藏12345
+                bottomText.classList.remove('show');
+                // 检查是否已经横屏，如果是则消失
+                if (isLandscape()) {
+                  hideSplashScreen();
+                } else {
+                  // 否则等待用户旋转屏幕
+                  const checkOrientation = setInterval(() => {
+                    if (isLandscape()) {
+                      bottomText.classList.remove('show');
+                      hideSplashScreen();
+                      clearInterval(checkOrientation);
+                    }
+                  }, 300);
+                }
+              }, 2000); // 旋转后保持2秒
+              
+            }, 2000); // 正常显示2秒
+            
+          }, 1000);
+        }, 2000); // "你好"显示2秒
+      }, 500);
+      
+      // 隐藏开屏动画
+      function hideSplashScreen() {
+        splashScreen.style.opacity = '0';
+        setTimeout(() => {
+          splashScreen.style.display = 'none';
+          app.classList.add('visible');
+        }, 800); // 与splash-screen的transition时间匹配
+      }
+      
+      // 监听屏幕旋转事件
+      window.addEventListener('resize', function() {
+        if (isLandscape() && splashScreen.style.display !== 'none' && splashScreen.style.opacity !== '0') {
+          bottomText.classList.remove('show');
+          hideSplashScreen();
+        }
+      });
+    });
+  </script>
+  
+  <script src="./static/js/vendors_index.cd86757e.chunk.js"></script>
+  <script src="./static/js/index.19ddcac8.js"></script>
+</body>
 
 </html>
-
