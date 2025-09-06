@@ -13,7 +13,7 @@
   <link href="./static/css/index.f663526a.css" rel="stylesheet">
   
   <style>
-    /* 开屏动画样式 */
+    /* 开屏动画容器：确保覆盖全屏且层级最高 */
     .splash-screen {
       position: fixed;
       top: 0;
@@ -27,17 +27,21 @@
       z-index: 9999;
       transition: opacity 0.8s ease-out;
       position: relative;
+      margin: 0;
+      padding: 0;
     }
     
+    /* 核心文字样式：统一过渡效果 */
     .splash-text {
       font-size: 2.5rem;
       font-weight: bold;
       text-align: center;
       opacity: 0;
       transition: opacity 1s ease-in-out;
+      margin: 0;
     }
     
-    /* 旋转相关样式 */
+    /* 旋转动画：单独控制旋转过渡，避免影响透明度 */
     .splash-text.rotate {
       transition: transform 1.5s ease-in-out;
     }
@@ -50,7 +54,7 @@
       transform: rotate(90deg);
     }
     
-    /* 右下角12345文字样式 */
+    /* 右下角小字：固定位置且过渡平滑 */
     .bottom-right-text {
       position: absolute;
       bottom: 20px;
@@ -59,13 +63,14 @@
       color: #666;
       opacity: 0;
       transition: opacity 0.5s ease-in-out;
+      margin: 0;
     }
     
     .bottom-right-text.show {
       opacity: 1;
     }
     
-    /* 隐藏原始内容直到开屏动画结束 */
+    /* 主应用内容：确保动画结束后才显示 */
     #app {
       opacity: 0;
       transition: opacity 0.5s ease-in;
@@ -78,102 +83,128 @@
 </head>
 
 <body>
-  <!-- 开屏动画容器 -->
-  <div class="splash-screen">
-    <div class="splash-text" id="helloText">嗨！小七</div>
-    <div class="splash-text" id="rotateText">把手机横屏</div>
-    <!-- 右下角小字 -->
-    <div class="bottom-right-text" id="bottomText">@易航</div>
+  <!-- 开屏动画容器：增加ID便于精准控制 -->
+  <div class="splash-screen" id="splashScreen">
+    <div class="splash-text" id="helloText">你好</div>
+    <div class="splash-text" id="rotateText">请将手机横屏</div>
+    <div class="bottom-right-text" id="bottomText">12345</div>
   </div>
   
   <div id="app"></div>
   
   <script>
-    // 百度统计代码
-    var _hmt = _hmt || [];
-    !function() {
-      var e = document.createElement("script");
-      e.src = "https://hm.baidu.com/hm.js?a0a029f60c1595a19fba2ac39f6f14bc";
-      var t = document.getElementsByTagName("script")[0];
-      t.parentNode.insertBefore(e, t)
-    }();
-    
-    // 开屏动画逻辑
+
+    // 开屏动画核心逻辑（修复隐藏问题）
     document.addEventListener('DOMContentLoaded', function() {
-      const splashScreen = document.querySelector('.splash-screen');
+      // 缓存DOM元素，减少重复查询
+      const splashScreen = document.getElementById('splashScreen');
       const helloText = document.getElementById('helloText');
       const rotateText = document.getElementById('rotateText');
       const bottomText = document.getElementById('bottomText');
       const app = document.getElementById('app');
       
-      // 检查屏幕方向
+      // 状态标记：防止重复执行隐藏逻辑
+      let isSplashHidden = false;
+      // 定时器变量：用于控制超时兜底和方向检测
+      let orientationCheckTimer = null;
+      let timeoutFallbackTimer = null;
+      
+      /**
+       * 优化屏幕方向检测：
+       * 1. 兼容设备物理旋转角度（0/90/180/270度）
+       * 2. 处理宽高接近的特殊情况（避免误判）
+       */
       function isLandscape() {
-        return window.innerWidth > window.innerHeight;
+        // 获取屏幕旋转角度（兼容主流浏览器）
+        const screenAngle = window.orientation || screen.orientation.angle;
+        // 横屏条件：角度为90或270度，或宽明显大于高（差值>100px避免误判）
+        return screenAngle === 90 || screenAngle === 270 || 
+               (window.innerWidth - window.innerHeight) > 100;
       }
       
-      // 显示"你好"文字
-      setTimeout(() => {
-        helloText.classList.add('visible');
-        bottomText.classList.add('show');
-        // 2秒后切换到"请将手机横屏"
-        setTimeout(() => {
-          helloText.classList.remove('visible');
-          
-          // 1秒后显示"请将手机横屏"
-          setTimeout(() => {
-            rotateText.classList.add('visible');
-            
-            // 先正常显示2秒
-            setTimeout(() => {
-              // 显示右下角12345
-              
-              // 缓慢旋转90度
-              rotateText.classList.add('rotate', 'rotated');
-              
-              // 旋转后保持2秒
-              setTimeout(() => {
-                // 隐藏12345
-                bottomText.classList.remove('show');
-                // 检查是否已经横屏，如果是则消失
-                if (isLandscape()) {
-                  hideSplashScreen();
-                } else {
-                  // 否则等待用户旋转屏幕
-                  const checkOrientation = setInterval(() => {
-                    if (isLandscape()) {
-                      bottomText.classList.remove('show');
-                      hideSplashScreen();
-                      clearInterval(checkOrientation);
-                    }
-                  }, 300);
-                }
-              }, 2000); // 旋转后保持2秒
-              
-            }, 2000); // 正常显示2秒
-            
-          }, 1000);
-        }, 2000); // "你好"显示2秒
-      }, 500);
-      
-      // 隐藏开屏动画
+      /**
+       * 统一隐藏开屏动画的逻辑：
+       * 1. 防止重复执行
+       * 2. 同步隐藏小字+显示主应用
+       */
       function hideSplashScreen() {
+        if (isSplashHidden) return;
+        isSplashHidden = true;
+        
+        // 清除所有定时器，避免内存泄漏
+        clearInterval(orientationCheckTimer);
+        clearTimeout(timeoutFallbackTimer);
+        
+        // 隐藏右下角小字
+        bottomText.classList.remove('show');
+        // 淡出开屏动画
         splashScreen.style.opacity = '0';
+        // 动画结束后移除容器+显示主应用
         setTimeout(() => {
           splashScreen.style.display = 'none';
           app.classList.add('visible');
-        }, 800); // 与splash-screen的transition时间匹配
+        }, 800); // 与CSS过渡时间一致，确保平滑
       }
       
-      // 监听屏幕旋转事件
+      // --------------- 动画时间线（按需求严格执行）---------------
+      // 1. 页面加载0.5秒后：显示“你好”
+      setTimeout(() => {
+        helloText.classList.add('visible');
+        
+        // 2. “你好”显示2秒后：淡出“你好”
+        setTimeout(() => {
+          helloText.classList.remove('visible');
+          
+          // 3. 淡出后1秒：显示“请将手机横屏”
+          setTimeout(() => {
+            rotateText.classList.add('visible');
+            
+            // 4. “请将手机横屏”正常显示2秒
+            setTimeout(() => {
+              // 显示右下角“12345”
+              bottomText.classList.add('show');
+              // 开始缓慢旋转90度
+              rotateText.classList.add('rotate', 'rotated');
+              
+              // 5. 旋转完成后保持2秒：同时开始检测横屏
+              setTimeout(() => {
+                // 持续检测横屏（每300ms一次）
+                orientationCheckTimer = setInterval(() => {
+                  if (isLandscape()) {
+                    hideSplashScreen();
+                  }
+                }, 300);
+                
+                // 兜底机制：若10秒内未旋转，自动隐藏（避免永久卡住）
+                timeoutFallbackTimer = setTimeout(() => {
+                  hideSplashScreen();
+                }, 5000);
+                
+              }, 2000); // 旋转后保持时间
+              
+            }, 2000); // “请将手机横屏”正常显示时间
+            
+          }, 1000); // “你好”淡出到“请将手机横屏”的间隔
+        }, 2000); // “你好”显示时间
+      }, 500); // 页面加载后延迟显示动画
+      
+      // 额外监听屏幕旋转事件（兼容手动旋转场景）
       window.addEventListener('resize', function() {
-        if (isLandscape() && splashScreen.style.display !== 'none' && splashScreen.style.opacity !== '0') {
-          bottomText.classList.remove('show');
+        if (isLandscape() && !isSplashHidden) {
+          hideSplashScreen();
+        }
+      });
+      
+      // 兼容屏幕方向变化事件（部分设备不触发resize，触发orientationchange）
+      window.addEventListener('orientationchange', function() {
+        if (isLandscape() && !isSplashHidden) {
           hideSplashScreen();
         }
       });
     });
   </script>
   
+  <!-- 原项目脚本（保留不动） -->
   <script src="./static/js/vendors_index.cd86757e.chunk.js"></script>
   <script src="./static/js/index.19ddcac8.js"></script>
 </body>
