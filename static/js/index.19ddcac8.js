@@ -1237,7 +1237,7 @@
             o = window.location.search.substr(1).match(e)
           return null === o ? null : decodeURI(o[2])
         })('__debug'),
-        version: '0.6.1'
+        version: '@易航'
       }
     k.a.config({ output: B.isDebug && 'default', color: '#fff' })
     var M = k.a,
